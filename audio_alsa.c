@@ -279,6 +279,7 @@ int pcm_open(struct pcm *pcm)
     struct snd_pcm_info info;
     struct snd_pcm_hw_params params;
     struct snd_pcm_sw_params sparams;
+    unsigned bufsz = 8192;
 
     if (pcm->fd >= 0)
         return oops(pcm, 0, "already open");
@@ -300,7 +301,7 @@ int pcm_open(struct pcm *pcm)
                    SNDRV_PCM_FORMAT_S16_LE);
     param_set_mask(&params, SNDRV_PCM_HW_PARAM_SUBFORMAT,
                    SNDRV_PCM_SUBFORMAT_STD);
-    param_set_min(&params, SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 8192);
+    param_set_min(&params, SNDRV_PCM_HW_PARAM_BUFFER_BYTES, bufsz);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_SAMPLE_BITS, 16);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_FRAME_BITS, 32);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_CHANNELS, 2);
@@ -317,9 +318,10 @@ int pcm_open(struct pcm *pcm)
     sparams.tstamp_mode = SNDRV_PCM_TSTAMP_NONE;
     sparams.period_step = 1;
     sparams.avail_min = 1;
-    sparams.start_threshold = 2048;//8192;
-    sparams.stop_threshold = 2048; //8192;
-    sparams.silence_size = 1073741824;
+    sparams.start_threshold = bufsz / 4;
+    sparams.stop_threshold = bufsz / 4;
+    sparams.xfer_align = bufsz / 8; /* needed for old kernels */
+    sparams.silence_size = 0;
     sparams.silence_threshold = 0;
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_SW_PARAMS, &sparams)) {
@@ -327,7 +329,7 @@ int pcm_open(struct pcm *pcm)
         goto fail;
     }
 
-    pcm->buffer_size = 4096;
+    pcm->buffer_size = bufsz / 2;
     pcm->underruns = 0;
     return 0;
 
